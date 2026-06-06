@@ -14,8 +14,8 @@ services:
       - SYS_ADMIN
       - NET_RAW
     environment:
-      OLCRTC_PATH: /usr/local/bin/olcrtc
-      OLCRTC_MANAGER_ADDR: "${OLCRTC_MANAGER_ADDR:-0.0.0.0}"
+      PANEL_ADDR: "${PANEL_ADDR:-0.0.0.0}"
+      PANEL_PORT: "${PANEL_PORT:-}"
       PANEL_CERT_IP: "${PANEL_CERT_IP:-}"
     volumes:
       - ./data:/etc/olcrtc-manager

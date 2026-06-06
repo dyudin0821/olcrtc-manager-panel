@@ -6,12 +6,26 @@ random_hex() {
     od -An -N"$bytes" -tx1 /dev/urandom | tr -d ' \n'
 }
 
+random_port() {
+    local raw port
+    for _ in $(seq 1 20); do
+        raw="$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')"
+        port=$((20000 + raw % 40000))
+        if ! ss -ltn "( sport = :$port )" 2>/dev/null | grep -q ":$port"; then
+            printf '%s\n' "$port"
+            return
+        fi
+    done
+    printf '%s\n' 8888
+}
+
 CONFIG_DIR="${CONFIG_DIR:-/etc/olcrtc-manager}"
 CONFIG_PATH="${CONFIG_PATH:-${CONFIG_DIR}/config.json}"
 TLS_CERT="${TLS_CERT_PATH:-${CONFIG_DIR}/tls.crt}"
 TLS_KEY="${TLS_KEY_PATH:-${CONFIG_DIR}/tls.key}"
 PANEL_ENV="${PANEL_ENV_PATH:-${CONFIG_DIR}/panel.env}"
 PANEL_ADDR="${PANEL_ADDR:-0.0.0.0}"
+PANEL_PORT="${PANEL_PORT:-$(random_port)}"
 OLCRTC_PATH="${OLCRTC_PATH:-/usr/local/bin/olcrtc}"
 
 mkdir -p "${CONFIG_DIR}"
@@ -73,20 +87,26 @@ fi
 # Create a minimal default config if none exists
 if [ ! -f "${CONFIG_PATH}" ]; then
     echo "[entrypoint] Creating default config at ${CONFIG_PATH}"
-    cat > "${CONFIG_PATH}" <<'EOF'
+    cat > "${CONFIG_PATH}" <<EOF
 {
   "version": 1,
   "name": "OlcRTC VPS",
-  "port": 8443,
+  "port": ${PANEL_PORT},
   "clients": []
 }
 EOF
     chmod 0600 "${CONFIG_PATH}"
+else
+    # Read port from existing config so the access URL is accurate
+    _cfg_port="$(tr -d '\n\r' < "${CONFIG_PATH}" | sed -n 's/.*"port"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n1)"
+    if [ -n "${_cfg_port}" ] && [ "${_cfg_port}" -gt 0 ] && [ "${_cfg_port}" -le 65535 ] 2>/dev/null; then
+        PANEL_PORT="${_cfg_port}"
+    fi
 fi
 
 # Print access info (always show, credentials only on first run)
 _DISPLAY_HOST="${PANEL_CERT_IP:-localhost}"
-echo "[entrypoint] Access URL: https://${_DISPLAY_HOST}:8443${OLCRTC_MANAGER_ADMIN_PATH:-/admin}"
+echo "[entrypoint] Access URL: https://${_DISPLAY_HOST}:${PANEL_PORT}${OLCRTC_MANAGER_ADMIN_PATH:-/admin}"
 if [ "${_FIRST_RUN}" = "1" ]; then
     echo "[entrypoint] Username:   ${_ADMIN_USER}"
     echo "[entrypoint] Password:   ${_ADMIN_PASS}"
