@@ -1,0 +1,22 @@
+services:
+  olcrtc-manager:
+    image: ghcr.io/bigdaddy3334/olcrtc-manager-panel:latest
+    container_name: olcrtc-manager
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - NET_RAW
+    environment:
+      OLCRTC_PATH: /usr/local/bin/olcrtc
+      OLCRTC_MANAGER_ADDR: "${OLCRTC_MANAGER_ADDR:-0.0.0.0}"
+      PANEL_CERT_IP: "${PANEL_CERT_IP:-}"
+    volumes:
+      - ./data:/etc/olcrtc-manager
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
